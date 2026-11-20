@@ -1,9 +1,12 @@
 extends Node3D
-## Oyun döngüsü: seviye + oyuncu + gösterge; süre, düşünce yeniden başlatma, bitiş.
-## Test: komut satırına "-- --test" eklenince bot rampada kayar, ölçüm yazar, kare kaydeder, çıkar.
+## Oyun döngüsü: sonsuz seviye + oyuncu + gösterge; düşünce bulunulan bölümün başına dönüş.
+## Test: komut satırına "-- --test" eklenince bot ilk rampada kayar, ölçüm yazar, kare kaydeder, çıkar.
 
 const Oyuncu := preload("res://betikler/oyuncu.gd")
 const Seviye := preload("res://betikler/seviye.gd")
+const Dunya := preload("res://betikler/dunya.gd")
+
+var dunya: Node3D
 
 var oyuncu: CharacterBody3D
 var seviye: Node3D
@@ -11,9 +14,9 @@ var hiz_yazi: Label
 var sure_yazi: Label
 var bilgi_yazi: Label
 var sure := 0.0
-var kosuyor := false
-var bitti := false
-var en_iyi := -1.0
+var bolum := 0
+var en_ileri := 0
+var dusme := 0
 var en_yuksek := 0.0
 var test := false
 var test_t := 0.0
@@ -25,12 +28,14 @@ func _ready() -> void:
 	_tuslar()
 	seviye = Seviye.new()
 	add_child(seviye)
-	seviye.kur()
+	seviye.kur(7 if test else -1)
+	dunya = Dunya.new()
+	add_child(dunya)
+	dunya.kur()
 	oyuncu = Oyuncu.new()
 	add_child(oyuncu)
-	seviye.bitis.body_entered.connect(_bitise_girdi)
 	_gosterge()
-	_basla()
+	oyuncu.isinla(seviye.baslangic, seviye.baslangic_yaw)
 	if test:
 		oyuncu.bot = true
 	else:
@@ -38,10 +43,7 @@ func _ready() -> void:
 
 
 func _tuslar() -> void:
-	var harita := {
-		"ileri": KEY_W, "geri": KEY_S, "sol": KEY_A, "sag": KEY_D,
-		"zipla": KEY_SPACE, "yeniden": KEY_R,
-	}
+	var harita := {"ileri": KEY_W, "geri": KEY_S, "sol": KEY_A, "sag": KEY_D, "zipla": KEY_SPACE, "yeniden": KEY_R}
 	for ad in harita:
 		if not InputMap.has_action(ad):
 			InputMap.add_action(ad)
@@ -58,11 +60,11 @@ func _gosterge() -> void:
 	hiz_yazi.position += Vector2(-200, -120)
 	hiz_yazi.custom_minimum_size = Vector2(400, 0)
 	hiz_yazi.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sure_yazi = _yazi(katman, 30)
+	sure_yazi = _yazi(katman, 26)
 	sure_yazi.position = Vector2(24, 16)
-	bilgi_yazi = _yazi(katman, 20)
-	bilgi_yazi.position = Vector2(24, 64)
-	bilgi_yazi.text = "W ile platformdan in · rampaya doğru A ya da D basılı tut · fareyle yön ver\nR yeniden başla · Esc fare"
+	bilgi_yazi = _yazi(katman, 18)
+	bilgi_yazi.position = Vector2(24, 96)
+	bilgi_yazi.text = "W ile in · rampaya doğru A/D basılı tut · fareyle aynı yöne dön\nR bölüm başı · F1/F2 yerçekimi · Esc fare"
 	var nisan := ColorRect.new()
 	nisan.color = Color(1, 1, 1, 0.8)
 	nisan.size = Vector2(4, 4)
@@ -79,74 +81,73 @@ func _yazi(ust: Node, boy: int) -> Label:
 	return y
 
 
-func _basla() -> void:
-	oyuncu.isinla(seviye.baslangic, seviye.baslangic_yaw)
-	sure = 0.0
-	kosuyor = false
-	bitti = false
-	en_yuksek = 0.0
-
-
-func _bitise_girdi(govde: Node) -> void:
-	if govde != oyuncu or bitti or not kosuyor:
+func _bolum_basina() -> void:
+	var b: Dictionary = seviye.bolumler[bolum]
+	if bolum == 0:
+		oyuncu.isinla(seviye.baslangic, seviye.baslangic_yaw)
 		return
-	bitti = true
-	kosuyor = false
-	if en_iyi < 0.0 or sure < en_iyi:
-		en_iyi = sure
+	# Yolun üstünde, rampa yüzünün ortasına yakın; ileri doğru hızla başlat.
+	oyuncu.isinla(b.bas + Vector3(0, -b.yuk * 0.5 + 1.5, 0), b.yaw)
+	oyuncu.hiz = seviye.ileri(b.yaw) * 12.0
 
 
 func _unhandled_input(olay: InputEvent) -> void:
 	if test:
 		return  # bot testinde gerçek klavye/fare girdisi sonucu bozmasın
 	if olay.is_action_pressed("yeniden"):
-		_basla()
+		_bolum_basina()
+	elif olay is InputEventKey and olay.pressed and olay.physical_keycode == KEY_F1:
+		oyuncu.yercekimi *= 0.9
+	elif olay is InputEventKey and olay.pressed and olay.physical_keycode == KEY_F2:
+		oyuncu.yercekimi *= 1.1
 	elif olay is InputEventKey and olay.pressed and olay.physical_keycode == KEY_ESCAPE:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED else Input.MOUSE_MODE_CAPTURED
-	elif olay is InputEventMouseButton and olay.pressed and not test:
+	elif olay is InputEventMouseButton and olay.pressed:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
 func _physics_process(dt: float) -> void:
 	var p := oyuncu.global_position
-	# Süre, oyuncu başlangıç platformunun ön kenarını geçince başlar.
-	if not kosuyor and not bitti and p.z < seviye.baslangic.z - 6.0:
-		kosuyor = true
-	if kosuyor:
+	bolum = seviye.guncelle(p, bolum)
+	en_ileri = maxi(en_ileri, bolum)
+	if bolum > 0 or p.z < -6.0:
 		sure += dt
-	if p.y < seviye.olum_y:
-		_basla()
+	var b: Dictionary = seviye.bolumler[bolum]
+	dunya.izle(p, b.bas.y, dt)
+	if p.y < b.bas.y - 70.0:
+		dusme += 1
+		_bolum_basina()
 	var h: float = oyuncu.yatay_hiz_birim()
 	en_yuksek = maxf(en_yuksek, h)
 	hiz_yazi.text = "%d" % int(h)
-	var satir := "%.2f sn" % sure
-	if bitti:
-		satir += "  bitti"
-	if en_iyi >= 0.0:
-		satir += "   en iyi %.2f sn" % en_iyi
-	sure_yazi.text = satir
+	sure_yazi.text = "%d:%02d   bölüm %d (%s)   düşme %d\nyerçekimi %d" % [
+		int(sure) / 60, int(sure) % 60, bolum + 1, b.ad, dusme, int(round(oyuncu.etkin_yercekimi() / 0.01905))]
 	if test:
 		_test_adimi(dt)
 
 
 func _test_adimi(dt: float) -> void:
 	test_t += dt
-	# Bot: platformdan ileri yürüyüp düşer, rampa yüzüne yaklaşınca yalnız sağ tuşu (rampaya doğru) basılı tutar.
 	var bp := oyuncu.global_position
-	if bp.z > -7.5 and bp.y > 60.0:
+	if bp.z > -7.5 and bp.y > 59.0:
 		oyuncu.bot_girdi = Vector2(0, 1)
-	elif bp.y < 48.0:
+	elif bp.y < 50.0:
 		oyuncu.bot_girdi = Vector2(1, 0)
 	else:
 		oyuncu.bot_girdi = Vector2.ZERO
 	if test_t >= test_sonraki:
-		test_sonraki += 0.5
-		var p := oyuncu.global_position
-		print("t=%.1f konum=(%.1f, %.1f, %.1f) yatay=%d birim/sn yerde=%s" % [test_t, p.x, p.y, p.z, int(oyuncu.yatay_hiz_birim()), oyuncu.yerde])
+		test_sonraki += 1.0
+		print("t=%.1f konum=(%.1f, %.1f, %.1f) yatay=%d bölüm=%d" % [test_t, bp.x, bp.y, bp.z, int(oyuncu.yatay_hiz_birim()), bolum])
 	if test_t >= 10.0:
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://test_cikti"))
 		get_viewport().get_texture().get_image().save_png("res://test_cikti/kare.png")
-		var p := oyuncu.global_position
-		var gecti: bool = p.y > seviye.olum_y + 5.0 and p.z < -30.0 and en_yuksek > 400.0
-		print("TEST %s: en yüksek yatay hız %d birim/sn, son konum z=%.1f y=%.1f" % ["GECTI" if gecti else "KALDI", int(en_yuksek), p.z, p.y])
+		# Üretici: 40 bölüm üret, her türün çıktığını say.
+		while seviye.bolumler.size() < 40:
+			seviye._bolum_ekle()
+		var turler := {}
+		for k in seviye.bolumler:
+			turler[k.ad] = true
+		var gecti: bool = dusme == 0 and bp.z < -30.0 and en_yuksek > 400.0 and turler.size() == seviye.TURLER.size()
+		print("TEST %s: en yüksek %d birim/sn, düşme %d, z=%.1f, 40 bölümde tür %d/%d" % [
+			"GECTI" if gecti else "KALDI", int(en_yuksek), dusme, bp.z, turler.size(), seviye.TURLER.size()])
 		get_tree().quit(0 if gecti else 1)

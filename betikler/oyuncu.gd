@@ -35,7 +35,8 @@ func _ready() -> void:
 	add_child(sekil)
 	kamera = Camera3D.new()
 	kamera.top_level = true
-	kamera.fov = 74.0
+	kamera.keep_aspect = Camera3D.KEEP_WIDTH
+	kamera.fov = 90.0  # CS2 varsayılanı: 90 derece yatay
 	kamera.far = 3000.0
 	add_child(kamera)
 	kamera.current = true
@@ -59,6 +60,16 @@ func isinla(konum: Vector3, yeni_yaw: float) -> void:
 	pitch = 0.0
 	yerde = false
 	reset_physics_interpolation()
+
+
+## Yerçekimi hızla logaritmik artar: g = g0 * (1 + k * ln(1 + v / v0)); v yatay hız (birim/sn).
+## v0 = 1000, k = 0,5 → 1000 birimde 1,35 kat, 3000 birimde 1,69 kat.
+@export var g_k := 0.5
+@export var g_v0 := 1000.0
+
+
+func etkin_yercekimi() -> float:
+	return yercekimi * (1.0 + g_k * log(1.0 + yatay_hiz_birim() / g_v0))
 
 
 func yatay_hiz_birim() -> float:
@@ -94,7 +105,7 @@ func _physics_process(dt: float) -> void:
 		_ivmelen(yon, istek_hiz, yer_ivme, istek_hiz, dt)
 	else:
 		_ivmelen(yon, istek_hiz, hava_ivme, minf(istek_hiz, hava_tavan), dt)
-		hiz.y -= yercekimi * dt
+		hiz.y -= etkin_yercekimi() * dt
 
 	if hiz.length() > azami_hiz:
 		hiz = hiz.normalized() * azami_hiz
@@ -107,7 +118,8 @@ func _yer_kontrol() -> void:
 		yerde = false
 		return
 	var c := move_and_collide(Vector3(0, -0.04, 0), true)
-	if c != null and c.get_normal().y >= yer_egimi:
+	# Rampa hiçbir eğimde yer sayılmaz: sörfte zıplama ve sürtünme tetiklenmez.
+	if c != null and c.get_normal().y >= yer_egimi and not (c.get_collider() as Node).is_in_group("rampa"):
 		if not yerde:
 			hiz.y = 0.0
 		yerde = true

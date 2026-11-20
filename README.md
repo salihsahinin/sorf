@@ -33,7 +33,6 @@ Rampaya ilk temasta W'yi bırak. Yalnız yan tuşla kalırsan düşmezsin; farey
 ## Dosyalar
 
 - `betikler/oyuncu.gd` hareket modeli.
-- `betikler/seviye.gd` harita: `kur()` içindeki `_rampa(...)` satırları. Yeni rampa = yeni satır.
 - `betikler/seviye.gd` sonsuz harita üreticisi; bölüm türleri `TURLER` listesinde (duz, zikzak, viraj, dusus, dalga, dar, genis). Yeni tür = listeye ad + `_bolum_ekle()` içine dal. Rampa hiçbir eğimde yer sayılmaz (sörfte zıplama yok).
 - `betikler/dunya.gd` arka plan: İTÜ Ayazağa binaları, `veri/itu-binalar.json`.
 - `betikler/ana.gd` süre, en iyi süre, düşünce yeniden başlatma, bot testi.

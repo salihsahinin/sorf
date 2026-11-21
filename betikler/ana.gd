@@ -10,6 +10,10 @@ var dunya: Node3D
 static var kampus_modu := false   # K tuşuyla değişir, sahne yeniden yüklenince korunur
 static var sokak_modu := false    # kampüste zemin seviyesinde yürüme
 var bitti := false
+# Oynanış kaydı (kampüs modu): rampa başına bir satır → kayit/oynanis.jsonl; CatBoost eğitim verisi.
+var kayit_t0 := 0.0
+var kayit_giris := 0.0
+var kayit_tepe := 0.0
 var en_iyi := -1.0
 
 var oyuncu: CharacterBody3D
@@ -163,7 +167,11 @@ func _physics_process(dt: float) -> void:
 				print("SOKAK %s: doğuş %s, şimdi y=%.2f, yerde=%s, yürüdü %.1f m" % ["GECTI" if gecti else "KALDI", seviye.baslangic, p.y, oyuncu.yerde, Vector2(p.x - seviye.baslangic.x, p.z - seviye.baslangic.z).length()])
 				get_tree().quit(0 if gecti else 1)
 		return
+	var onceki := bolum
 	bolum = seviye.guncelle(p, bolum)
+	kayit_tepe = maxf(kayit_tepe, oyuncu.yatay_hiz_birim())
+	if kampus_modu and bolum != onceki:
+		_kayit(onceki, false)
 	en_ileri = maxi(en_ileri, bolum)
 	if not bitti and (bolum > 0 or p.distance_to(seviye.baslangic) > 7.0):
 		sure += dt
@@ -176,6 +184,8 @@ func _physics_process(dt: float) -> void:
 			en_iyi = sure
 	if p.y < b.bas.y - 70.0 or (kampus_modu and not bitti and p.y < 1.2 and oyuncu.yerde and bolum > 0):
 		dusme += 1
+		if kampus_modu:
+			_kayit(bolum, true)
 		_bolum_basina()
 	var h: float = oyuncu.yatay_hiz_birim()
 	en_yuksek = maxf(en_yuksek, h)
@@ -240,3 +250,26 @@ func _test_adimi(dt: float) -> void:
 		print("TEST %s: en yüksek %d birim/sn, düşme %d, z=%.1f, 40 bölümde tür %d/%d" % [
 			"GECTI" if gecti else "KALDI", int(en_yuksek), dusme, bp.z, turler.size(), seviye.TURLER.size()])
 		get_tree().quit(0 if gecti else 1)
+
+
+func _kayit(i: int, dustu: bool) -> void:
+	# Satır: rampanın özellikleri (uzunluk, taraf, sonraki rampaya dönüş açısı) + oyuncunun o rampadaki sonucu.
+	var b: Dictionary = seviye.bolumler[i]
+	var donus := 0.0
+	if i + 1 < seviye.bolumler.size():
+		donus = rad_to_deg(wrapf(seviye.bolumler[i + 1].yaw - b.yaw, -PI, PI))
+	var satir := {
+		"zaman": Time.get_datetime_string_from_system(), "bot": test, "bolum": i,
+		"uzunluk": b.get("uz", 0.0), "taraf": b.get("s", 0), "donus_derece": snappedf(donus, 0.1),
+		"giris_hiz": int(kayit_giris), "tepe_hiz": int(kayit_tepe), "cikis_hiz": int(oyuncu.yatay_hiz_birim()),
+		"sure": snappedf(sure - kayit_t0, 0.01), "dustu": dustu,
+	}
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://kayit"))
+	var yol := "res://kayit/oynanis.jsonl"
+	var f := FileAccess.open(yol, FileAccess.READ_WRITE) if FileAccess.file_exists(yol) else FileAccess.open(yol, FileAccess.WRITE)
+	f.seek_end()
+	f.store_line(JSON.stringify(satir))
+	f.close()
+	kayit_t0 = sure
+	kayit_giris = oyuncu.yatay_hiz_birim()
+	kayit_tepe = kayit_giris

@@ -21,6 +21,8 @@ var bitis_konum := Vector3.ZERO
 const VADI := Vector3(980, 0, -385)
 const MED := Vector3(-54, 0, -56)
 const MED_YUKSEKLIK := 20.0
+const TEPE := 5.0   # kampüs rampalarının tepe yüksekliği (m): oyuncu zeminden 0-5 m arasında kayar
+var rota := PackedVector3Array()
 
 
 func kur(tohum: int = -1, kampus_modu := false) -> void:
@@ -35,35 +37,40 @@ func kur(tohum: int = -1, kampus_modu := false) -> void:
 		for i in 6:
 			_bolum_ekle()
 		return
-	# Kampüs: Vadi Yurtları üstünden başla, MED'e doğru in. Önce sıfır yüksekliğe göre üret, sonra bütün
-	# parkuru bitiş platformu MED çatısının 10 m üstünde kalacak kadar kaldır.
-	var p := VADI
-	imlec_yaw = _hedef_yaw(p)
-	baslangic_yaw = imlec_yaw
-	baslangic = p + Vector3(0, 2, 0)
-	imlec = p + ileri(imlec_yaw) * 3.0 + Vector3(0, -6, 0)
-	_kutu(self, p, Vector3(12, 1, 12), Color(0.9, 0.9, 0.92))
-	while Vector2(imlec.x - MED.x, imlec.z - MED.z).length() > 160.0 and sayac < 40:
-		_bolum_ekle()
-	# Son rampa: imleçten MED'e doğru, platform MED'in hemen önünde biter.
-	var kalan := Vector2(imlec.x - MED.x, imlec.z - MED.z).length()
-	imlec_yaw = _hedef_yaw(imlec)
-	var son_kap := Node3D.new()
-	add_child(son_kap)
-	bolumler.append({"dugum": son_kap, "bas": imlec, "yaw": imlec_yaw, "yuk": 12.0, "ad": "final"})
-	var uz := maxf(kalan - 25.0, 30.0)
-	_parca(son_kap, 1, uz, 10, 12, uz * 0.1, Color(0.95, 0.85, 0.35))
-	_gap(10.0)
-	bitis_konum = imlec + Vector3(0, -10.0, 0)
-	_kutu(self, bitis_konum, Vector3(60, 1, 60), Color(0.95, 0.85, 0.35))
-	var kaldir := MED_YUKSEKLIK + 10.0 - bitis_konum.y
-	for c in get_children():
-		if c is Node3D:
-			c.position.y += kaldir
-	for b in bolumler:
-		b.bas.y += kaldir
-	baslangic.y += kaldir
-	bitis_konum.y += kaldir
+	# Kampüs (alçak sörf): rampalar yol rotası boyunca, tepe yerden TEPE m. Rampa alçalmaz; hız hava ivmesiyle
+	# (rampaya doğru tuş + fareyle aynı yöne dönüş) kazanılır. Rota köşeleri 25 m'den kısa parçalar birleşerek sadeleşir.
+	var kose := PackedVector3Array([rota[0]])
+	for i in range(1, rota.size()):
+		if rota[i].distance_to(kose[kose.size() - 1]) >= 25.0 or i == rota.size() - 1:
+			kose.append(rota[i])
+	var renk_i := 0
+	var s := 1
+	for i in range(kose.size() - 1):
+		var a := kose[i]
+		var b := kose[i + 1]
+		var yaw := atan2(-(b - a).x, -(b - a).z)
+		# Virajda rampa dış tarafta dursun: dönüş yönünün tersi.
+		if i + 2 < kose.size():
+			var sonraki := atan2(-(kose[i + 2] - b).x, -(kose[i + 2] - b).z)
+			s = -1 if wrapf(sonraki - yaw, -PI, PI) > 0.0 else 1
+		var uz := a.distance_to(b) - 6.0
+		if uz < 8.0:
+			continue
+		var kap := Node3D.new()
+		add_child(kap)
+		imlec = Vector3(a.x, TEPE, a.z) + ileri(yaw) * 3.0
+		imlec_yaw = yaw
+		bolumler.append({"dugum": kap, "bas": imlec, "yaw": yaw, "yuk": 5.0, "ad": "sokak"})
+		_parca(kap, s, uz, 4.5, TEPE, 0.0, Color.from_hsv(fmod(renk_i * 0.137, 1.0), 0.55, 0.92))
+		renk_i += 1
+	var ilk: Dictionary = bolumler[0]
+	baslangic_yaw = ilk.yaw
+	var p0: Vector3 = ilk.bas - ileri(ilk.yaw) * 10.0
+	_kutu(self, Vector3(p0.x, TEPE + 1.5, p0.z), Vector3(8, 1, 8), Color(0.9, 0.9, 0.92))
+	baslangic = Vector3(p0.x, TEPE + 3.5, p0.z)
+	var son_n := kose[kose.size() - 1]
+	bitis_konum = Vector3(son_n.x, 0.5, son_n.z)
+	_kutu(self, bitis_konum, Vector3(20, 1, 20), Color(0.95, 0.85, 0.35))
 
 
 func ileri(yaw: float) -> Vector3:

@@ -12,7 +12,7 @@ Counter-Strike sörf haritalarının hareket modelini Godot 4.7 ile yeniden kura
 
 - **Sonsuz** (`oyna.bat`): harita ilerledikçe üretilir, bitmez.
 - **Sokak** (`sokak.bat` ya da K ile): İTÜ Ayazağa zemin seviyesinde yürüme; binalar çarpışır, yollar ve yaya yolları OpenStreetMap verisinden (`veri/itu-yollar.json`, 1005 yol).
-- **Kampüs** (`kampus.bat` ya da oyunda K): Vadi Yurtları üstünden Merkezi Derslik A (MED) çatısına sabit parkur, yaklaşık 1,1 km, 7 bölüm; bitiş platformunda süre ve en iyi süre.
+- **Kampüs** (`kampus.bat` ya da oyunda K): alçak sörf. Yol ağında Vadi Yurtları → Merkezi Derslik A (MED) en kısa rotası (1613 m); 34 rampa sokak boyunca, tepe yerden 5 m. Rampa alçalmaz, hız hava ivmesiyle kazanılır; yere değmek bölüm başına döndürür.
 
 ## Nasıl sörf yapılır
 

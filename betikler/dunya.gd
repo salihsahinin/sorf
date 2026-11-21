@@ -265,3 +265,57 @@ func _yol_ustunde(q: Vector3) -> bool:
 		if p.distance_to(en) < y[2] + 0.5:
 			return true
 	return false
+
+
+## Yol ağında en kısa rota (Dijkstra). Düğüm = 1 m'ye yuvarlanmış yol noktası; merdiven hariç.
+## Dönen dizi: rotanın köşe noktaları (y = 0).
+func rota(bas: Vector3, son: Vector3) -> PackedVector3Array:
+	var komsu := {}
+	var anahtar := func(v: Vector3) -> Vector2i: return Vector2i(int(round(v.x)), int(round(v.z)))
+	for y in yol_parcalari:
+		var a: Vector2i = anahtar.call(y[0])
+		var b: Vector2i = anahtar.call(y[1])
+		var d := Vector2(a).distance_to(Vector2(b))
+		if not komsu.has(a): komsu[a] = []
+		if not komsu.has(b): komsu[b] = []
+		komsu[a].append([b, d])
+		komsu[b].append([a, d])
+	var en_yakin := func(v: Vector3) -> Vector2i:
+		var en := Vector2i.ZERO
+		var ed := INF
+		for k in komsu:
+			var dd := Vector2(k).distance_to(Vector2(v.x, v.z))
+			if dd < ed:
+				ed = dd
+				en = k
+		return en
+	var kaynak: Vector2i = en_yakin.call(bas)
+	var hedef: Vector2i = en_yakin.call(son)
+	var mesafe := {kaynak: 0.0}
+	var once := {}
+	var acik := [kaynak]
+	while acik.size() > 0:
+		var ei := 0
+		for i in acik.size():
+			if mesafe[acik[i]] < mesafe[acik[ei]]:
+				ei = i
+		var u: Vector2i = acik[ei]
+		acik.remove_at(ei)
+		if u == hedef:
+			break
+		for kd in komsu[u]:
+			var v: Vector2i = kd[0]
+			var nd: float = mesafe[u] + kd[1]
+			if nd < mesafe.get(v, INF):
+				if not mesafe.has(v):
+					acik.append(v)
+				mesafe[v] = nd
+				once[v] = u
+	var yol := PackedVector3Array()
+	var c := hedef
+	while c != kaynak and once.has(c):
+		yol.insert(0, Vector3(c.x, 0, c.y))
+		c = once[c]
+	yol.insert(0, Vector3(kaynak.x, 0, kaynak.y))
+	print("rota: %d nokta, %.0f m" % [yol.size(), mesafe.get(hedef, -1.0)])
+	return yol

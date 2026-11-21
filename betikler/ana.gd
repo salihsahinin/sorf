@@ -35,15 +35,18 @@ func _ready() -> void:
 		sokak_modu = true
 		kampus_modu = false
 	_tuslar()
+	# Dünya önce kurulur: kampüs parkuru yol ağından rota çıkarır.
+	dunya = Dunya.new()
+	add_child(dunya)
+	dunya.kur(sokak_modu or kampus_modu)
 	seviye = Seviye.new()
 	add_child(seviye)
 	if sokak_modu:
 		seviye._ortam()
 	else:
+		if kampus_modu:
+			seviye.rota = dunya.rota(Seviye.VADI, Seviye.MED)
 		seviye.kur(2026 if kampus_modu else (7 if test else -1), kampus_modu)
-	dunya = Dunya.new()
-	add_child(dunya)
-	dunya.kur(sokak_modu)
 	oyuncu = Oyuncu.new()
 	add_child(oyuncu)
 	_gosterge()
@@ -171,7 +174,7 @@ func _physics_process(dt: float) -> void:
 		bitti = true
 		if en_iyi < 0.0 or sure < en_iyi:
 			en_iyi = sure
-	if p.y < b.bas.y - 70.0:
+	if p.y < b.bas.y - 70.0 or (kampus_modu and not bitti and p.y < 1.2 and oyuncu.yerde and bolum > 0):
 		dusme += 1
 		_bolum_basina()
 	var h: float = oyuncu.yatay_hiz_birim()
@@ -191,12 +194,26 @@ func _physics_process(dt: float) -> void:
 
 func _test_adimi(dt: float) -> void:
 	test_t += dt
+	if kampus_modu and "--galeri" in OS.get_cmdline_user_args():
+		# Rota üzerinde 6 noktadan kare (her bölümün başında, rampa yüzünde göz hizası).
+		var n: int = seviye.bolumler.size()
+		var i := int(test_t / 1.2)
+		if i >= 6:
+			get_tree().quit(0)
+			return
+		var bb: Dictionary = seviye.bolumler[mini(i * (n - 1) / 5, n - 1)]
+		oyuncu.isinla(bb.bas + Vector3(0, -1.5, 0), bb.yaw)
+		oyuncu.bot_girdi = Vector2.ZERO
+		if fmod(test_t, 1.2) + dt >= 1.2:
+			DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://test_cikti"))
+			get_viewport().get_texture().get_image().save_png("res://test_cikti/rota-%d.png" % i)
+		return
 	if kampus_modu:
 		if test_t >= 2.0:
 			DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://test_cikti"))
 			get_viewport().get_texture().get_image().save_png("res://test_cikti/kampus.png")
 			var son: Vector3 = seviye.bitis_konum
-			var gecti: bool = seviye.bolumler.size() >= 4 and Vector2(son.x - seviye.MED.x, son.z - seviye.MED.z).length() < 30.0 and son.y > 20.0
+			var gecti: bool = seviye.bolumler.size() >= 10 and Vector2(son.x - seviye.MED.x, son.z - seviye.MED.z).length() < 80.0 and seviye.baslangic.y < 10.0
 			print("KAMPUS %s: %d bölüm, başlangıç y=%.0f, bitiş (%.0f, %.0f, %.0f)" % ["GECTI" if gecti else "KALDI", seviye.bolumler.size(), seviye.baslangic.y, son.x, son.y, son.z])
 			get_tree().quit(0 if gecti else 1)
 		return

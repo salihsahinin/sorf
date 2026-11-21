@@ -140,6 +140,19 @@ func _physics_process(dt: float) -> void:
 		if test:
 			test_t += dt
 			oyuncu.bot_girdi = Vector2(0, 1)
+			if "--galeri" in OS.get_cmdline_user_args():
+				# Sabit noktalardan kare: önce/sonra karşılaştırması için. Her nokta 1,5 sn.
+				var noktalar: Array = [[seviye.baslangic + Vector3(0, 0.4, 0), 0.0]] + dunya.galeri
+				var i := int(test_t / 1.5)
+				oyuncu.bot_girdi = Vector2.ZERO
+				if i >= noktalar.size():
+					get_tree().quit(0)
+					return
+				oyuncu.isinla(noktalar[i][0], noktalar[i][1])
+				if fmod(test_t, 1.5) + dt >= 1.5:
+					DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://test_cikti"))
+					get_viewport().get_texture().get_image().save_png("res://test_cikti/galeri-%d.png" % i)
+				return
 			if test_t >= 3.0:
 				DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://test_cikti"))
 				get_viewport().get_texture().get_image().save_png("res://test_cikti/sokak.png")

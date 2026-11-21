@@ -7,7 +7,10 @@ extends Node3D
 const DERIN := 220.0
 
 var hedef_y := 0.0
-var dogus := Vector3.ZERO   # sokak modunda doğuş: merkeze en yakın yol noktası
+var dogus := Vector3.ZERO
+var bina_kutulari := {}   # 20 m hücre → bina AABB listesi (ağaç yerleşimi için)
+var yol_parcalari: Array = []   # [a, b, yarı genişlik, yaya]
+var galeri: Array = []   # sabit kamera noktaları [konum, yaw]   # sokak modunda doğuş: merkeze en yakın yol noktası
 
 
 func kur(sokak := false) -> void:
@@ -16,6 +19,7 @@ func kur(sokak := false) -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for b in binalar:
+		_kutu_kaydet(b.p)
 		var h: float = b.h
 		var poly := PackedVector2Array()
 		for q in b.p:
@@ -57,6 +61,7 @@ func kur(sokak := false) -> void:
 	ag.material_override = m
 	add_child(ag)
 	_yollar()
+	_agaclar()
 	if sokak:
 		# Sokak modu: binalar ve zemin çarpışır, oyuncu yerde yürür.
 		var govde := StaticBody3D.new()
@@ -110,6 +115,7 @@ func _yollar() -> void:
 			for v in [a - yan, b - yan, a + yan, a + yan, b - yan, b + yan]:
 				st.set_normal(Vector3.UP)
 				st.add_vertex(v)
+			yol_parcalari.append([a, b, w, yaya])
 			var d := Vector2(a.x, a.z).length()
 			if yaya and d < en_yakin:
 				en_yakin = d
@@ -121,3 +127,118 @@ func _yollar() -> void:
 	ag.mesh = st.commit()
 	ag.material_override = m
 	add_child(ag)
+
+
+func _kutu_kaydet(p: Array) -> void:
+	var mn := Vector2(INF, INF)
+	var mx := Vector2(-INF, -INF)
+	for q in p:
+		mn = mn.min(Vector2(q[0], q[1]))
+		mx = mx.max(Vector2(q[0], q[1]))
+	var kutu := Rect2(mn, mx - mn).grow(2.0)
+	for gx in range(int(floor(kutu.position.x / 20.0)), int(floor(kutu.end.x / 20.0)) + 1):
+		for gz in range(int(floor(kutu.position.y / 20.0)), int(floor(kutu.end.y / 20.0)) + 1):
+			var k := Vector2i(gx, gz)
+			if not bina_kutulari.has(k):
+				bina_kutulari[k] = []
+			bina_kutulari[k].append(kutu)
+
+
+func _bina_icinde(x: float, z: float) -> bool:
+	var k := Vector2i(int(floor(x / 20.0)), int(floor(z / 20.0)))
+	for kutu in bina_kutulari.get(k, []):
+		if kutu.has_point(Vector2(x, z)):
+			return true
+	return false
+
+
+func _agaclar() -> void:
+	# Sokak ağaçları ve lambalar: araç yollarının iki yanına aralıklı dizilir; bina kutusuna düşen atlanır.
+	# Tek çizim çağrısı için MultiMesh. Konum deterministik (tohum sabit) olsun ki galeri kareleri karşılaştırılabilsin.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 42
+	var agac: Array = []
+	var lamba: Array = []
+	for y in yol_parcalari:
+		var a: Vector3 = y[0]
+		var b: Vector3 = y[1]
+		var w: float = y[2]
+		var uz := a.distance_to(b)
+		var yon := (b - a) / uz
+		var yan := yon.cross(Vector3.UP)
+		var t := rng.randf_range(0.0, 8.0)
+		while t < uz:
+			for taraf in [-1.0, 1.0]:
+				var q: Vector3 = a + yon * t + yan * float(taraf) * (w + 2.2)
+				if not _bina_icinde(q.x, q.z) and Vector2(q.x - dogus.x, q.z - dogus.z).length() > 6.0:
+					if y[3]:
+						if rng.randf() < 0.15:
+							agac.append(q)
+					else:
+						agac.append(q)
+			if not y[3] and int(t / 14.0) % 2 == 0:
+				var l := a + yon * t + yan * (w + 0.8)
+				if not _bina_icinde(l.x, l.z):
+					lamba.append([l, yon])
+			t += rng.randf_range(12.0, 20.0)
+		if galeri.size() < 4 and not y[3] and uz > 30.0 and absf(a.x) < 600.0 and absf(a.z) < 500.0 and galeri.size() * 37 < yol_parcalari.find(y) % 160:
+			galeri.append([a + Vector3(0, 1.6, 0), atan2(-yon.x, -yon.z)])
+	_coklu(agac, _agac_govde(), Color(0.36, 0.27, 0.2), rng, true)
+	_coklu(agac, _agac_tac(), Color(0.22, 0.36, 0.17), rng, false)
+	var lm: Array = []
+	for l in lamba:
+		lm.append(l[0])
+	_coklu(lm, _lamba(), Color(0.25, 0.26, 0.28), rng, true)
+
+
+func _agac_govde() -> Mesh:
+	var m := CylinderMesh.new()
+	m.top_radius = 0.12
+	m.bottom_radius = 0.18
+	m.height = 3.0
+	m.radial_segments = 6
+	return m
+
+
+func _agac_tac() -> Mesh:
+	var m := SphereMesh.new()
+	m.radius = 2.2
+	m.height = 3.6
+	m.radial_segments = 8
+	m.rings = 5
+	return m
+
+
+func _lamba() -> Mesh:
+	var m := CylinderMesh.new()
+	m.top_radius = 0.06
+	m.bottom_radius = 0.09
+	m.height = 6.0
+	m.radial_segments = 6
+	return m
+
+
+func _coklu(noktalar: Array, mesh: Mesh, renk: Color, rng: RandomNumberGenerator, govde: bool) -> void:
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	mm.mesh = mesh
+	mm.instance_count = noktalar.size()
+	var yerel := RandomNumberGenerator.new()
+	yerel.seed = 7
+	for i in noktalar.size():
+		var q: Vector3 = noktalar[i]
+		var olcek := yerel.randf_range(0.75, 1.3)
+		var bz := Basis(Vector3.UP, yerel.randf() * TAU).scaled(Vector3(olcek, olcek, olcek))
+		var h: float = mesh.height if mesh is CylinderMesh else 0.0
+		var oy := h * 0.5 * olcek if govde else (2.6 + 1.6) * olcek
+		mm.set_instance_transform(i, Transform3D(bz, q + Vector3(0, oy, 0)))
+		mm.set_instance_color(i, renk.lightened(yerel.randf_range(-0.15, 0.15)))
+	var mi := MultiMeshInstance3D.new()
+	mi.multimesh = mm
+	var mat := StandardMaterial3D.new()
+	mat.vertex_color_use_as_albedo = true
+	mat.roughness = 0.9
+	mi.material_override = mat
+	add_child(mi)
+	print("dunya: %d örnek (%s)" % [noktalar.size(), mesh.get_class()])

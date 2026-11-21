@@ -8,6 +8,12 @@ Counter-Strike sörf haritalarının hareket modelini Godot 4.7 ile yeniden kura
 2. `oyna.bat` çift tıkla. İlk açılışta önbellek üretilir (birkaç saniye).
 3. Farklı yerdeyse: `Godot_v4.7.2-stable_win64.exe --path <bu klasör>`.
 
+## Modlar
+
+- **Sonsuz** (`oyna.bat`): harita ilerledikçe üretilir, bitmez.
+- **Sokak** (`sokak.bat` ya da K ile): İTÜ Ayazağa zemin seviyesinde yürüme; binalar çarpışır, yollar ve yaya yolları OpenStreetMap verisinden (`veri/itu-yollar.json`, 1005 yol).
+- **Kampüs** (`kampus.bat` ya da oyunda K): alçak sörf. Yol ağında Vadi Yurtları → Merkezi Derslik A (MED) en kısa rotası (1613 m); 34 rampa sokak boyunca, tepe yerden 5 m. Rampa alçalmaz, hız hava ivmesiyle kazanılır; yere değmek bölüm başına döndürür.
+
 ## Nasıl sörf yapılır
 
 | Tuş | İş |
@@ -16,7 +22,7 @@ Counter-Strike sörf haritalarının hareket modelini Godot 4.7 ile yeniden kura
 | A / D | rampaya doğru olan tuşu basılı tut (sağdaki rampada D) |
 | Fare | bakış yönü; hızlanmak için tuşla aynı yöne çevir |
 | Boşluk | zıpla (yalnız düz yerde) |
-| R | baştan başla · Esc fareyi serbest bırak |
+| R | bölüm başına dön · K mod değiştir (sonsuz / kampüs) · F1/F2 yerçekimi · Esc fare |
 
 Rampaya ilk temasta W'yi bırak. Yalnız yan tuşla kalırsan düşmezsin; fareyi aynı yöne yavaşça çevirince hız artar. Ekranın altındaki sayı yatay hızdır (Source birimi/sn).
 
@@ -50,7 +56,7 @@ Rampaya ilk temasta W'yi bırak. Yalnız yan tuşla kalırsan düşmezsin; farey
 
 ## Veri
 
-Bina izleri ve yükseklikleri: © OpenStreetMap katkıcıları, ODbL (https://www.openstreetmap.org/copyright). Kutu: 41.098-41.112 K, 29.012-29.036 D; 484 bina, 2026-11-21 Overpass çekimi.
+Bina izleri ve yükseklikleri: © OpenStreetMap katkıcıları, ODbL (https://www.openstreetmap.org/copyright). Kutu: 41.098-41.114 K, 29.012-29.046 D; 1395 bina, 1390 yol, 2026-11-21 Overpass çekimi.
 
 ## Lisans
 

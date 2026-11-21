@@ -23,6 +23,8 @@ var yerde := false
 var yaw := 0.0
 var pitch := 0.0
 var bot := false
+var bekle := false          # yeniden doğuşta ilk tuşa kadar havada asılı bekler (kendi kendine düşme döngüsü olmasın)
+var bekle_hiz := Vector3.ZERO
 var bot_girdi := Vector2.ZERO  # x: sağ(+)/sol(-), y: ileri(+)/geri(-)
 var kamera: Camera3D
 
@@ -86,6 +88,11 @@ func _girdi() -> Vector2:
 
 func _physics_process(dt: float) -> void:
 	var g := _girdi()
+	if bekle:
+		if g == Vector2.ZERO:
+			return
+		bekle = false
+		hiz = bekle_hiz
 	var taban := Basis(Vector3.UP, yaw)
 	var istek := (taban * Vector3(g.x, 0, -g.y))
 	istek.y = 0

@@ -15,17 +15,79 @@ var bolumler: Array = []   # {dugum, bas, yaw, yuk, ad}
 var imlec := Vector3(0, 54, -3)
 var imlec_yaw := 0.0
 var sayac := 0
+var kampus := false          # sabit parkur: kampüsün batısından doğusuna, kendi kendine biter
+var bitis_konum := Vector3.ZERO
+# Kampüs rotası (veri/itu-binalar.json koordinatı, metre): Vadi Yurtları Yemekhanesi → Merkezi Derslik A (MED)
+const VADI := Vector3(980, 0, -385)
+const MED := Vector3(-54, 0, -56)
+const MED_YUKSEKLIK := 20.0
+const TEPE := 5.0   # kampüs rampalarının tepe yüksekliği (m): oyuncu zeminden 0-5 m arasında kayar
+var rota := PackedVector3Array()
+var ham_kose := PackedVector3Array()   # yumuşatma öncesi rota köşeleri (parkur_ayarla.py girdisi)
 
 
-func kur(tohum: int = -1) -> void:
+func kur(tohum: int = -1, kampus_modu := false) -> void:
+	kampus = kampus_modu
 	if tohum >= 0:
 		rng.seed = tohum
 	else:
 		rng.randomize()
 	_ortam()
-	_kutu(self, Vector3(0, 60, 0), Vector3(12, 1, 12), Color(0.9, 0.9, 0.92))
-	for i in 6:
-		_bolum_ekle()
+	if not kampus:
+		_kutu(self, Vector3(0, 60, 0), Vector3(12, 1, 12), Color(0.9, 0.9, 0.92))
+		for i in 6:
+			_bolum_ekle()
+		return
+	# Kampüs (alçak sörf): rampalar yol rotası boyunca, tepe yerden TEPE m. Rampa alçalmaz; hız hava ivmesiyle
+	# (rampaya doğru tuş + fareyle aynı yöne dönüş) kazanılır. Rota köşeleri 25 m'den kısa parçalar birleşerek sadeleşir.
+	var kose := PackedVector3Array([rota[0]])
+	for i in range(1, rota.size()):
+		if rota[i].distance_to(kose[kose.size() - 1]) >= 25.0 or i == rota.size() - 1:
+			kose.append(rota[i])
+	# Köşe yumuşatma (Chaikin): her köşe iki yarım açılı köşeye bölünür. Varsayılan 1 tur; veriyle doğrulanmadı.
+	ham_kose = kose
+	# Yumuşatma ayarı veri/parkur-ayar.json dosyasından gelir (egitim/parkur_ayarla.py modelle seçer).
+	var tur := 1
+	var oran := 0.25
+	if FileAccess.file_exists("res://veri/parkur-ayar.json"):
+		var ayar: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://veri/parkur-ayar.json"))
+		tur = int(ayar.get("tur", 1))
+		oran = float(ayar.get("oran", 0.25))
+	for t in tur:
+		var yumusak := PackedVector3Array([kose[0]])
+		for i in range(kose.size() - 1):
+			yumusak.append(kose[i].lerp(kose[i + 1], oran))
+			yumusak.append(kose[i].lerp(kose[i + 1], 1.0 - oran))
+		yumusak.append(kose[kose.size() - 1])
+		kose = yumusak
+	var renk_i := 0
+	var s := 1
+	for i in range(kose.size() - 1):
+		var a := kose[i]
+		var b := kose[i + 1]
+		var yaw := atan2(-(b - a).x, -(b - a).z)
+		# Virajda rampa dış tarafta dursun: dönüş yönünün tersi.
+		if i + 2 < kose.size():
+			var sonraki := atan2(-(kose[i + 2] - b).x, -(kose[i + 2] - b).z)
+			s = -1 if wrapf(sonraki - yaw, -PI, PI) > 0.0 else 1
+		var uz := a.distance_to(b) - 1.5
+		if uz < 5.0:
+			continue
+		var kap := Node3D.new()
+		add_child(kap)
+		imlec = Vector3(a.x, TEPE, a.z) + ileri(yaw) * 0.75
+		imlec_yaw = yaw
+		bolumler.append({"dugum": kap, "bas": imlec, "yaw": yaw, "yuk": 5.0, "ad": "sokak", "uz": uz, "s": s})
+		_parca(kap, s, uz, 4.5, TEPE, 0.0, Color.from_hsv(fmod(renk_i * 0.137, 1.0), 0.16, 0.72))
+		renk_i += 1
+	var ilk: Dictionary = bolumler[0]
+	baslangic_yaw = ilk.yaw
+	var p0: Vector3 = ilk.bas - ileri(ilk.yaw) * 10.0
+	_kutu(self, Vector3(p0.x, TEPE + 1.5, p0.z), Vector3(8, 1, 8), Color(0.9, 0.9, 0.92))
+	baslangic = Vector3(p0.x, TEPE + 3.5, p0.z)
+	var son_n := kose[kose.size() - 1]
+	bitis_konum = Vector3(son_n.x, 0.5, son_n.z)
+	_kutu(self, bitis_konum, Vector3(20, 1, 20), Color(0.95, 0.85, 0.35))
 
 
 func ileri(yaw: float) -> Vector3:
@@ -43,6 +105,8 @@ func guncelle(p: Vector3, simdiki: int) -> int:
 		var b: Dictionary = bolumler[i]
 		if (p - b.bas).dot(ileri(b.yaw)) > 0.0 and p.distance_to(b.bas) < 300.0:
 			yeni = i
+	if kampus:
+		return yeni
 	while bolumler.size() - yeni < 6:
 		_bolum_ekle()
 	# Geride kalan bölümleri sil (dizideki yeri korunur, düğüm serbest bırakılır).
@@ -86,6 +150,11 @@ func _bolum_ekle() -> void:
 				s = -s
 				_gap(rng.randf_range(6, 10))
 		"viraj":
+			if kampus:
+				# Virajlar parkuru doğu yönüne geri çevirir; kampüsün dışına taşmasın.
+				var fark := wrapf(_hedef_yaw(imlec) - imlec_yaw, -PI, PI)
+				if absf(fark) > 0.05:
+					s = -1 if fark > 0.0 else 1
 			var adim := -s * deg_to_rad(rng.randf_range(9, 14))
 			for i in rng.randi_range(7, 11):
 				_parca(kap, s, 22, 10, 12, 2.5, renk)
@@ -187,21 +256,35 @@ func _ortam() -> void:
 	var cevre := WorldEnvironment.new()
 	var e := Environment.new()
 	var gok := Sky.new()
-	var gm := ProceduralSkyMaterial.new()
-	gm.sky_top_color = Color(0.18, 0.32, 0.6)
-	gm.sky_horizon_color = Color(0.7, 0.8, 0.92)
-	gm.ground_bottom_color = Color(0.1, 0.12, 0.18)
-	gm.ground_horizon_color = Color(0.7, 0.8, 0.92)
+	var gm := PhysicalSkyMaterial.new()   # Rayleigh/Mie saçılımı: güneşe göre değişen gerçek gök rengi
+	gm.turbidity = 6.0
+	gm.ground_color = Color(0.3, 0.32, 0.3)
 	gok.sky_material = gm
 	e.background_mode = Environment.BG_SKY
 	e.sky = gok
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	e.ambient_light_energy = 0.9
-	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	e.tonemap_mode = Environment.TONE_MAPPER_ACES
+	e.tonemap_exposure = 0.95
+	e.ssao_enabled = true            # köşe ve bina diplerinde ortam gölgesi
+	e.ssao_radius = 2.0
+	e.ssao_intensity = 2.5
+	e.glow_enabled = true
+	e.adjustment_enabled = true
+	e.adjustment_saturation = 1.1
 	e.fog_enabled = true
-	e.fog_density = 0.0008
+	e.fog_density = 0.00015 if kampus else 0.0008  # kampüste uzak binalar görünsün
 	cevre.environment = e
 	add_child(cevre)
 	var gunes := DirectionalLight3D.new()
-	gunes.rotation_degrees = Vector3(-50, 35, 0)
+	gunes.rotation_degrees = Vector3(-38, 35, 0)
+	gunes.light_energy = 1.4
+	gunes.shadow_enabled = true
+	gunes.directional_shadow_max_distance = 400.0
 	add_child(gunes)
+
+
+func _hedef_yaw(nereden: Vector3) -> float:
+	# ileri(yaw) = (-sin yaw, 0, -cos yaw) olduğundan MED yönünü veren yaw.
+	var d := MED - nereden
+	return atan2(-d.x, -d.z)

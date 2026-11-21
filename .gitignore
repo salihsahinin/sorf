@@ -1,3 +1,7 @@
 .godot/
 test_cikti/
 *.tmp
+kayit/
+__pycache__/
+catboost_info/
+egitim/model/

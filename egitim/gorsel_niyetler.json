@@ -1,0 +1,9 @@
+{
+ "_aciklama": "Görsel veri niyet listesi. Her niyet, fotoğrafın sayısal özelliklerinden bir grubu kümeler. Eğitim kümesi = (blok, ışık) çifti: aynı yerde ve aynı ışık koşulunda çekilmiş fotoğraflar tek sahne modeline girer.",
+ "niyetler": [
+  {"ad": "blok", "soz": "her model tek ekran kartına sığsın: yakın fotoğraflar aynı blokta", "ozellikler": ["x", "z"], "k": "otomatik", "azami": 400},
+  {"ad": "isik", "soz": "aynı ışık koşulu: farklı gün ve saat ayrı modele", "ozellikler": ["saat_sin", "saat_cos", "parlaklik", "r", "g", "b"], "k": 3},
+  {"ad": "bakis", "soz": "göz hizası ve rota yönü: aynı yöne bakanlar bir arada", "ozellikler": ["pusula_sin", "pusula_cos"], "k": 4},
+  {"ad": "kalite", "soz": "bulanık kareler eğitime girmesin", "ozellikler": ["keskinlik_log"], "k": 2, "ele": "en_dusuk_keskinlik"}
+ ]
+}

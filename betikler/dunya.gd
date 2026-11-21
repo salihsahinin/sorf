@@ -30,7 +30,8 @@ func kur(sokak := false) -> void:
 			alan += a.x * c.y - c.x * a.y
 		if alan < 0.0:
 			poly.reverse()
-		var renk := Color(0.86, 0.82, 0.74) if b.ad == "" else Color(0.78, 0.84, 0.92)
+		var palet := [Color(0.82, 0.78, 0.70), Color(0.74, 0.72, 0.68), Color(0.70, 0.52, 0.42), Color(0.88, 0.86, 0.80), Color(0.62, 0.64, 0.66)]
+		var renk: Color = palet[absi(hash(str(b.p[0]))) % palet.size()]
 		st.set_color(renk)
 		for i in poly.size():
 			var a := poly[i]
@@ -49,9 +50,8 @@ func kur(sokak := false) -> void:
 				var q := poly[ucgen[i + j]]
 				st.set_normal(Vector3.UP)
 				st.add_vertex(Vector3(q.x, h, q.y))
-	var m := StandardMaterial3D.new()
-	m.vertex_color_use_as_albedo = true
-	m.roughness = 0.9
+	var m := ShaderMaterial.new()
+	m.shader = preload("res://shaderlar/bina.gdshader")
 	var ag := MeshInstance3D.new()
 	ag.mesh = st.commit()
 	ag.material_override = m
@@ -71,8 +71,8 @@ func kur(sokak := false) -> void:
 	var pm := PlaneMesh.new()
 	pm.size = Vector2(6000, 6000)
 	zemin.mesh = pm
-	var zm := StandardMaterial3D.new()
-	zm.albedo_color = Color(0.36, 0.46, 0.32)
+	var zm := ShaderMaterial.new()
+	zm.shader = preload("res://shaderlar/zemin.gdshader")
 	zemin.material_override = zm
 	zemin.position.y = -0.2
 	add_child(zemin)
@@ -99,7 +99,7 @@ func _yollar() -> void:
 	for y in yollar:
 		var w: float = y.g * 0.5
 		var yaya: bool = y.t in ["footway", "path", "pedestrian", "steps", "cycleway"]
-		st.set_color(Color(0.62, 0.6, 0.56) if yaya else Color(0.2, 0.21, 0.23))
+		st.set_color(Color(0.40, 0.39, 0.37) if yaya else Color(0.16, 0.17, 0.18))
 		var h := 0.04 if yaya else 0.03
 		for i in range(y.p.size() - 1):
 			var a := Vector3(y.p[i][0], h, y.p[i][1])

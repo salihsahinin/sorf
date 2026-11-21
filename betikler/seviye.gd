@@ -219,21 +219,29 @@ func _ortam() -> void:
 	var cevre := WorldEnvironment.new()
 	var e := Environment.new()
 	var gok := Sky.new()
-	var gm := ProceduralSkyMaterial.new()
-	gm.sky_top_color = Color(0.18, 0.32, 0.6)
-	gm.sky_horizon_color = Color(0.7, 0.8, 0.92)
-	gm.ground_bottom_color = Color(0.1, 0.12, 0.18)
-	gm.ground_horizon_color = Color(0.7, 0.8, 0.92)
+	var gm := PhysicalSkyMaterial.new()   # Rayleigh/Mie saçılımı: güneşe göre değişen gerçek gök rengi
+	gm.turbidity = 6.0
+	gm.ground_color = Color(0.3, 0.32, 0.3)
 	gok.sky_material = gm
 	e.background_mode = Environment.BG_SKY
 	e.sky = gok
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	e.ambient_light_energy = 0.9
-	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	e.tonemap_mode = Environment.TONE_MAPPER_ACES
+	e.tonemap_exposure = 0.95
+	e.ssao_enabled = true            # köşe ve bina diplerinde ortam gölgesi
+	e.ssao_radius = 2.0
+	e.ssao_intensity = 2.5
+	e.glow_enabled = true
+	e.adjustment_enabled = true
+	e.adjustment_saturation = 1.1
 	e.fog_enabled = true
 	e.fog_density = 0.00015 if kampus else 0.0008  # kampüste uzak binalar görünsün
 	cevre.environment = e
 	add_child(cevre)
 	var gunes := DirectionalLight3D.new()
-	gunes.rotation_degrees = Vector3(-50, 35, 0)
+	gunes.rotation_degrees = Vector3(-38, 35, 0)
+	gunes.light_energy = 1.4
+	gunes.shadow_enabled = true
+	gunes.directional_shadow_max_distance = 400.0
 	add_child(gunes)

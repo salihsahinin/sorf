@@ -8,6 +8,7 @@ const Dunya := preload("res://betikler/dunya.gd")
 
 var dunya: Node3D
 static var kampus_modu := false   # K tuşuyla değişir, sahne yeniden yüklenince korunur
+static var sokak_modu := false    # kampüste zemin seviyesinde yürüme
 var bitti := false
 var en_iyi := -1.0
 
@@ -30,16 +31,24 @@ func _ready() -> void:
 	test = "--test" in OS.get_cmdline_user_args()
 	if "--kampus" in OS.get_cmdline_user_args():
 		kampus_modu = true
+	if "--sokak" in OS.get_cmdline_user_args():
+		sokak_modu = true
+		kampus_modu = false
 	_tuslar()
 	seviye = Seviye.new()
 	add_child(seviye)
-	seviye.kur(2026 if kampus_modu else (7 if test else -1), kampus_modu)
+	if sokak_modu:
+		seviye._ortam()
+	else:
+		seviye.kur(2026 if kampus_modu else (7 if test else -1), kampus_modu)
 	dunya = Dunya.new()
 	add_child(dunya)
-	dunya.kur()
+	dunya.kur(sokak_modu)
 	oyuncu = Oyuncu.new()
 	add_child(oyuncu)
 	_gosterge()
+	if sokak_modu:
+		seviye.baslangic = dunya.dogus + Vector3(0, 1.2, 0)
 	oyuncu.isinla(seviye.baslangic, seviye.baslangic_yaw)
 	if test:
 		oyuncu.bot = true
@@ -69,7 +78,7 @@ func _gosterge() -> void:
 	sure_yazi.position = Vector2(24, 16)
 	bilgi_yazi = _yazi(katman, 18)
 	bilgi_yazi.position = Vector2(24, 96)
-	bilgi_yazi.text = "W ile in · rampaya doğru A/D basılı tut · fareyle aynı yöne dön\nR bölüm başı · F1/F2 yerçekimi · K mod değiştir · Esc fare"
+	bilgi_yazi.text = "W ile in · rampaya doğru A/D basılı tut · fareyle aynı yöne dön\nR bölüm başı · F1/F2 yerçekimi · K mod (sonsuz/kampüs/sokak) · Esc fare"
 	var nisan := ColorRect.new()
 	nisan.color = Color(1, 1, 1, 0.8)
 	nisan.size = Vector2(4, 4)
@@ -102,7 +111,14 @@ func _unhandled_input(olay: InputEvent) -> void:
 	if olay.is_action_pressed("yeniden"):
 		_bolum_basina()
 	elif olay is InputEventKey and olay.pressed and olay.physical_keycode == KEY_K:
-		kampus_modu = not kampus_modu
+		# Sıra: sonsuz → kampüs → sokak → sonsuz
+		if sokak_modu:
+			sokak_modu = false
+		elif kampus_modu:
+			kampus_modu = false
+			sokak_modu = true
+		else:
+			kampus_modu = true
 		get_tree().reload_current_scene()
 	elif olay is InputEventKey and olay.pressed and olay.physical_keycode == KEY_F1:
 		oyuncu.yercekimi *= 0.9
@@ -116,6 +132,21 @@ func _unhandled_input(olay: InputEvent) -> void:
 
 func _physics_process(dt: float) -> void:
 	var p := oyuncu.global_position
+	if sokak_modu:
+		if p.y < -20.0:
+			oyuncu.isinla(seviye.baslangic, oyuncu.yaw)
+		hiz_yazi.text = "%d" % int(oyuncu.yatay_hiz_birim())
+		sure_yazi.text = "sokak · İTÜ Ayazağa · konum (%d, %d) m" % [int(p.x), int(p.z)]
+		if test:
+			test_t += dt
+			oyuncu.bot_girdi = Vector2(0, 1)
+			if test_t >= 3.0:
+				DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://test_cikti"))
+				get_viewport().get_texture().get_image().save_png("res://test_cikti/sokak.png")
+				var gecti: bool = absf(p.y - seviye.baslangic.y) < 1.5 and oyuncu.yerde
+				print("SOKAK %s: doğuş %s, şimdi y=%.2f, yerde=%s, yürüdü %.1f m" % ["GECTI" if gecti else "KALDI", seviye.baslangic, p.y, oyuncu.yerde, Vector2(p.x - seviye.baslangic.x, p.z - seviye.baslangic.z).length()])
+				get_tree().quit(0 if gecti else 1)
+		return
 	bolum = seviye.guncelle(p, bolum)
 	en_ileri = maxi(en_ileri, bolum)
 	if not bitti and (bolum > 0 or p.distance_to(seviye.baslangic) > 7.0):

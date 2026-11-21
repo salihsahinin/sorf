@@ -7,9 +7,10 @@ extends Node3D
 const DERIN := 220.0
 
 var hedef_y := 0.0
+var dogus := Vector3.ZERO   # sokak modunda doğuş: merkeze en yakın yol noktası
 
 
-func kur() -> void:
+func kur(sokak := false) -> void:
 	var f := FileAccess.open("res://veri/itu-binalar.json", FileAccess.READ)
 	var binalar: Array = JSON.parse_string(f.get_as_text())
 	var st := SurfaceTool.new()
@@ -55,6 +56,17 @@ func kur() -> void:
 	ag.mesh = st.commit()
 	ag.material_override = m
 	add_child(ag)
+	_yollar()
+	if sokak:
+		# Sokak modu: binalar ve zemin çarpışır, oyuncu yerde yürür.
+		var govde := StaticBody3D.new()
+		var sb := CollisionShape3D.new()
+		sb.shape = ag.mesh.create_trimesh_shape()
+		govde.add_child(sb)
+		var sz := CollisionShape3D.new()
+		sz.shape = WorldBoundaryShape3D.new()
+		govde.add_child(sz)
+		add_child(govde)
 	var zemin := MeshInstance3D.new()
 	var pm := PlaneMesh.new()
 	pm.size = Vector2(6000, 6000)
@@ -75,3 +87,37 @@ func izle(oyuncu_konum: Vector3, bolum_y: float, dt: float) -> void:
 	if position.y == 0.0:
 		position.y = hedef_y
 	position.y = lerpf(position.y, hedef_y, minf(1.0, dt * 0.5))
+
+
+func _yollar() -> void:
+	# veri/itu-yollar.json: her yol {g: genişlik m, t: OSM highway türü, p: [[x, z], ...]}. Düz şerit, çarpışmasız.
+	var f := FileAccess.open("res://veri/itu-yollar.json", FileAccess.READ)
+	var yollar: Array = JSON.parse_string(f.get_as_text())
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var en_yakin := INF
+	for y in yollar:
+		var w: float = y.g * 0.5
+		var yaya: bool = y.t in ["footway", "path", "pedestrian", "steps", "cycleway"]
+		st.set_color(Color(0.62, 0.6, 0.56) if yaya else Color(0.2, 0.21, 0.23))
+		var h := 0.04 if yaya else 0.03
+		for i in range(y.p.size() - 1):
+			var a := Vector3(y.p[i][0], h, y.p[i][1])
+			var b := Vector3(y.p[i + 1][0], h, y.p[i + 1][1])
+			if a.distance_to(b) < 0.01:
+				continue
+			var yan := (b - a).cross(Vector3.UP).normalized() * w
+			for v in [a - yan, b - yan, a + yan, a + yan, b - yan, b + yan]:
+				st.set_normal(Vector3.UP)
+				st.add_vertex(v)
+			var d := Vector2(a.x, a.z).length()
+			if yaya and d < en_yakin:
+				en_yakin = d
+				dogus = a
+	var m := StandardMaterial3D.new()
+	m.vertex_color_use_as_albedo = true
+	m.roughness = 0.95
+	var ag := MeshInstance3D.new()
+	ag.mesh = st.commit()
+	ag.material_override = m
+	add_child(ag)

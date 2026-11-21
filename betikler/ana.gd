@@ -109,7 +109,10 @@ func _bolum_basina() -> void:
 		return
 	# Yolun üstünde, rampa yüzünün ortasına yakın; ileri doğru hızla başlat.
 	oyuncu.isinla(b.bas + Vector3(0, -b.yuk * 0.5 + 1.5, 0), b.yaw)
-	oyuncu.hiz = seviye.ileri(b.yaw) * 12.0
+	oyuncu.bekle = not test
+	oyuncu.bekle_hiz = seviye.ileri(b.yaw) * 12.0
+	if test:
+		oyuncu.hiz = oyuncu.bekle_hiz
 
 
 func _unhandled_input(olay: InputEvent) -> void:
@@ -220,6 +223,12 @@ func _test_adimi(dt: float) -> void:
 		return
 	if kampus_modu:
 		if test_t >= 2.0:
+			var kk: Array = []
+			for v in seviye.ham_kose:
+				kk.append([snappedf(v.x, 0.1), snappedf(v.z, 0.1)])
+			var kf := FileAccess.open("res://veri/rota-kose.json", FileAccess.WRITE)
+			kf.store_string(JSON.stringify(kk))
+			kf.close()
 			DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://test_cikti"))
 			get_viewport().get_texture().get_image().save_png("res://test_cikti/kampus.png")
 			var son: Vector3 = seviye.bitis_konum

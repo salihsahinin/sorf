@@ -23,6 +23,7 @@ const MED := Vector3(-54, 0, -56)
 const MED_YUKSEKLIK := 20.0
 const TEPE := 5.0   # kampüs rampalarının tepe yüksekliği (m): oyuncu zeminden 0-5 m arasında kayar
 var rota := PackedVector3Array()
+var ham_kose := PackedVector3Array()   # yumuşatma öncesi rota köşeleri (parkur_ayarla.py girdisi)
 
 
 func kur(tohum: int = -1, kampus_modu := false) -> void:
@@ -43,14 +44,22 @@ func kur(tohum: int = -1, kampus_modu := false) -> void:
 	for i in range(1, rota.size()):
 		if rota[i].distance_to(kose[kose.size() - 1]) >= 25.0 or i == rota.size() - 1:
 			kose.append(rota[i])
-	# Köşe yumuşatma (Chaikin, 1 tur): her köşe iki yarım açılı köşeye bölünür. Gerekçe: oynanış kaydı
-	# (2026-11-21, 44 satır) 50 derece üstü dönüşlü rampalarda düşme oranını %63, 15 derecede %31 gösterdi.
-	var yumusak := PackedVector3Array([kose[0]])
-	for i in range(kose.size() - 1):
-		yumusak.append(kose[i].lerp(kose[i + 1], 0.25))
-		yumusak.append(kose[i].lerp(kose[i + 1], 0.75))
-	yumusak.append(kose[kose.size() - 1])
-	kose = yumusak
+	# Köşe yumuşatma (Chaikin): her köşe iki yarım açılı köşeye bölünür. Varsayılan 1 tur; veriyle doğrulanmadı.
+	ham_kose = kose
+	# Yumuşatma ayarı veri/parkur-ayar.json dosyasından gelir (egitim/parkur_ayarla.py modelle seçer).
+	var tur := 1
+	var oran := 0.25
+	if FileAccess.file_exists("res://veri/parkur-ayar.json"):
+		var ayar: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://veri/parkur-ayar.json"))
+		tur = int(ayar.get("tur", 1))
+		oran = float(ayar.get("oran", 0.25))
+	for t in tur:
+		var yumusak := PackedVector3Array([kose[0]])
+		for i in range(kose.size() - 1):
+			yumusak.append(kose[i].lerp(kose[i + 1], oran))
+			yumusak.append(kose[i].lerp(kose[i + 1], 1.0 - oran))
+		yumusak.append(kose[kose.size() - 1])
+		kose = yumusak
 	var renk_i := 0
 	var s := 1
 	for i in range(kose.size() - 1):

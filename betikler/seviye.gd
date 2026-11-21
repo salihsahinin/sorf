@@ -17,6 +17,10 @@ var imlec_yaw := 0.0
 var sayac := 0
 var kampus := false          # sabit parkur: kampüsün batısından doğusuna, kendi kendine biter
 var bitis_konum := Vector3.ZERO
+# Kampüs rotası (veri/itu-binalar.json koordinatı, metre): Vadi Yurtları Yemekhanesi → Merkezi Derslik A (MED)
+const VADI := Vector3(980, 0, -385)
+const MED := Vector3(-54, 0, -56)
+const MED_YUKSEKLIK := 20.0
 
 
 func kur(tohum: int = -1, kampus_modu := false) -> void:
@@ -31,19 +35,28 @@ func kur(tohum: int = -1, kampus_modu := false) -> void:
 		for i in 6:
 			_bolum_ekle()
 		return
-	# Kampüs: başlangıç batıda, yön doğu (+X). Önce sıfır yüksekliğe göre üret, sonra bütün parkuru
-	# bitiş platformu yerden 30 m yukarıda kalacak kadar kaldır.
-	var p := Vector3(-950, 0, 0)
-	imlec_yaw = -PI / 2
+	# Kampüs: Vadi Yurtları üstünden başla, MED'e doğru in. Önce sıfır yüksekliğe göre üret, sonra bütün
+	# parkuru bitiş platformu MED çatısının 10 m üstünde kalacak kadar kaldır.
+	var p := VADI
+	imlec_yaw = _hedef_yaw(p)
 	baslangic_yaw = imlec_yaw
 	baslangic = p + Vector3(0, 2, 0)
 	imlec = p + ileri(imlec_yaw) * 3.0 + Vector3(0, -6, 0)
 	_kutu(self, p, Vector3(12, 1, 12), Color(0.9, 0.9, 0.92))
-	while imlec.x < 900.0:
+	while Vector2(imlec.x - MED.x, imlec.z - MED.z).length() > 160.0 and sayac < 40:
 		_bolum_ekle()
-	bitis_konum = imlec + ileri(imlec_yaw) * 25.0 + Vector3(0, -10, 0)
+	# Son rampa: imleçten MED'e doğru, platform MED'in hemen önünde biter.
+	var kalan := Vector2(imlec.x - MED.x, imlec.z - MED.z).length()
+	imlec_yaw = _hedef_yaw(imlec)
+	var son_kap := Node3D.new()
+	add_child(son_kap)
+	bolumler.append({"dugum": son_kap, "bas": imlec, "yaw": imlec_yaw, "yuk": 12.0, "ad": "final"})
+	var uz := maxf(kalan - 25.0, 30.0)
+	_parca(son_kap, 1, uz, 10, 12, uz * 0.1, Color(0.95, 0.85, 0.35))
+	_gap(10.0)
+	bitis_konum = imlec + Vector3(0, -10.0, 0)
 	_kutu(self, bitis_konum, Vector3(60, 1, 60), Color(0.95, 0.85, 0.35))
-	var kaldir := 30.0 - bitis_konum.y
+	var kaldir := MED_YUKSEKLIK + 10.0 - bitis_konum.y
 	for c in get_children():
 		if c is Node3D:
 			c.position.y += kaldir
@@ -115,7 +128,7 @@ func _bolum_ekle() -> void:
 		"viraj":
 			if kampus:
 				# Virajlar parkuru doğu yönüne geri çevirir; kampüsün dışına taşmasın.
-				var fark := -PI / 2 - imlec_yaw
+				var fark := wrapf(_hedef_yaw(imlec) - imlec_yaw, -PI, PI)
 				if absf(fark) > 0.05:
 					s = -1 if fark > 0.0 else 1
 			var adim := -s * deg_to_rad(rng.randf_range(9, 14))
@@ -245,3 +258,9 @@ func _ortam() -> void:
 	gunes.shadow_enabled = true
 	gunes.directional_shadow_max_distance = 400.0
 	add_child(gunes)
+
+
+func _hedef_yaw(nereden: Vector3) -> float:
+	# ileri(yaw) = (-sin yaw, 0, -cos yaw) olduğundan MED yönünü veren yaw.
+	var d := MED - nereden
+	return atan2(-d.x, -d.z)

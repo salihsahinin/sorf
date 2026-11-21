@@ -196,7 +196,7 @@ func _test_adimi(dt: float) -> void:
 			DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://test_cikti"))
 			get_viewport().get_texture().get_image().save_png("res://test_cikti/kampus.png")
 			var son: Vector3 = seviye.bitis_konum
-			var gecti: bool = seviye.bolumler.size() >= 8 and son.x > 850.0 and absf(son.z) < 800.0 and son.y > 20.0
+			var gecti: bool = seviye.bolumler.size() >= 4 and Vector2(son.x - seviye.MED.x, son.z - seviye.MED.z).length() < 30.0 and son.y > 20.0
 			print("KAMPUS %s: %d bölüm, başlangıç y=%.0f, bitiş (%.0f, %.0f, %.0f)" % ["GECTI" if gecti else "KALDI", seviye.bolumler.size(), seviye.baslangic.y, son.x, son.y, son.z])
 			get_tree().quit(0 if gecti else 1)
 		return

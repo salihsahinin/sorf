@@ -7,6 +7,9 @@ const Seviye := preload("res://betikler/seviye.gd")
 const Dunya := preload("res://betikler/dunya.gd")
 
 var dunya: Node3D
+static var kampus_modu := false   # K tuşuyla değişir, sahne yeniden yüklenince korunur
+var bitti := false
+var en_iyi := -1.0
 
 var oyuncu: CharacterBody3D
 var seviye: Node3D
@@ -25,10 +28,12 @@ var test_sonraki := 0.0
 
 func _ready() -> void:
 	test = "--test" in OS.get_cmdline_user_args()
+	if "--kampus" in OS.get_cmdline_user_args():
+		kampus_modu = true
 	_tuslar()
 	seviye = Seviye.new()
 	add_child(seviye)
-	seviye.kur(7 if test else -1)
+	seviye.kur(2026 if kampus_modu else (7 if test else -1), kampus_modu)
 	dunya = Dunya.new()
 	add_child(dunya)
 	dunya.kur()
@@ -64,7 +69,7 @@ func _gosterge() -> void:
 	sure_yazi.position = Vector2(24, 16)
 	bilgi_yazi = _yazi(katman, 18)
 	bilgi_yazi.position = Vector2(24, 96)
-	bilgi_yazi.text = "W ile in · rampaya doğru A/D basılı tut · fareyle aynı yöne dön\nR bölüm başı · F1/F2 yerçekimi · Esc fare"
+	bilgi_yazi.text = "W ile in · rampaya doğru A/D basılı tut · fareyle aynı yöne dön\nR bölüm başı · F1/F2 yerçekimi · K mod değiştir · Esc fare"
 	var nisan := ColorRect.new()
 	nisan.color = Color(1, 1, 1, 0.8)
 	nisan.size = Vector2(4, 4)
@@ -96,6 +101,9 @@ func _unhandled_input(olay: InputEvent) -> void:
 		return  # bot testinde gerçek klavye/fare girdisi sonucu bozmasın
 	if olay.is_action_pressed("yeniden"):
 		_bolum_basina()
+	elif olay is InputEventKey and olay.pressed and olay.physical_keycode == KEY_K:
+		kampus_modu = not kampus_modu
+		get_tree().reload_current_scene()
 	elif olay is InputEventKey and olay.pressed and olay.physical_keycode == KEY_F1:
 		oyuncu.yercekimi *= 0.9
 	elif olay is InputEventKey and olay.pressed and olay.physical_keycode == KEY_F2:
@@ -110,24 +118,44 @@ func _physics_process(dt: float) -> void:
 	var p := oyuncu.global_position
 	bolum = seviye.guncelle(p, bolum)
 	en_ileri = maxi(en_ileri, bolum)
-	if bolum > 0 or p.z < -6.0:
+	if not bitti and (bolum > 0 or p.distance_to(seviye.baslangic) > 7.0):
 		sure += dt
 	var b: Dictionary = seviye.bolumler[bolum]
-	dunya.izle(p, b.bas.y, dt)
+	if not kampus_modu:
+		dunya.izle(p, b.bas.y, dt)
+	elif not bitti and p.distance_to(seviye.bitis_konum) < 40.0:
+		bitti = true
+		if en_iyi < 0.0 or sure < en_iyi:
+			en_iyi = sure
 	if p.y < b.bas.y - 70.0:
 		dusme += 1
 		_bolum_basina()
 	var h: float = oyuncu.yatay_hiz_birim()
 	en_yuksek = maxf(en_yuksek, h)
 	hiz_yazi.text = "%d" % int(h)
-	sure_yazi.text = "%d:%02d   bölüm %d (%s)   düşme %d\nyerçekimi %d" % [
-		int(sure) / 60, int(sure) % 60, bolum + 1, b.ad, dusme, int(round(oyuncu.etkin_yercekimi() / 0.01905))]
+	var mod := "kampüs %d/%d" % [bolum + 1, seviye.bolumler.size()] if kampus_modu else "sonsuz, bölüm %d" % (bolum + 1)
+	var ek := ""
+	if bitti:
+		ek = "   bitti"
+	if en_iyi >= 0.0:
+		ek += "   en iyi %d:%05.2f" % [int(en_iyi) / 60, fmod(en_iyi, 60.0)]
+	sure_yazi.text = "%d:%05.2f   %s (%s)   düşme %d%s\nyerçekimi %d" % [
+		int(sure) / 60, fmod(sure, 60.0), mod, b.ad, dusme, ek, int(round(oyuncu.etkin_yercekimi() / 0.01905))]
 	if test:
 		_test_adimi(dt)
 
 
 func _test_adimi(dt: float) -> void:
 	test_t += dt
+	if kampus_modu:
+		if test_t >= 2.0:
+			DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://test_cikti"))
+			get_viewport().get_texture().get_image().save_png("res://test_cikti/kampus.png")
+			var son: Vector3 = seviye.bitis_konum
+			var gecti: bool = seviye.bolumler.size() >= 8 and son.x > 850.0 and absf(son.z) < 800.0 and son.y > 20.0
+			print("KAMPUS %s: %d bölüm, başlangıç y=%.0f, bitiş (%.0f, %.0f, %.0f)" % ["GECTI" if gecti else "KALDI", seviye.bolumler.size(), seviye.baslangic.y, son.x, son.y, son.z])
+			get_tree().quit(0 if gecti else 1)
+		return
 	var bp := oyuncu.global_position
 	if bp.z > -7.5 and bp.y > 59.0:
 		oyuncu.bot_girdi = Vector2(0, 1)

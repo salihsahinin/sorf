@@ -8,6 +8,11 @@ Counter-Strike sörf haritalarının hareket modelini Godot 4.7 ile yeniden kura
 2. `oyna.bat` çift tıkla. İlk açılışta önbellek üretilir (birkaç saniye).
 3. Farklı yerdeyse: `Godot_v4.7.2-stable_win64.exe --path <bu klasör>`.
 
+## Modlar
+
+- **Sonsuz** (`oyna.bat`): harita ilerledikçe üretilir, bitmez.
+- **Kampüs** (`kampus.bat` ya da oyunda K): İTÜ Ayazağa üstünde sabit parkur, batıdan doğuya 11 bölüm, 395 m yükseklikten başlar, bitiş platformunda süre ve en iyi süre.
+
 ## Nasıl sörf yapılır
 
 | Tuş | İş |
@@ -16,7 +21,7 @@ Counter-Strike sörf haritalarının hareket modelini Godot 4.7 ile yeniden kura
 | A / D | rampaya doğru olan tuşu basılı tut (sağdaki rampada D) |
 | Fare | bakış yönü; hızlanmak için tuşla aynı yöne çevir |
 | Boşluk | zıpla (yalnız düz yerde) |
-| R | baştan başla · Esc fareyi serbest bırak |
+| R | bölüm başına dön · K mod değiştir (sonsuz / kampüs) · F1/F2 yerçekimi · Esc fare |
 
 Rampaya ilk temasta W'yi bırak. Yalnız yan tuşla kalırsan düşmezsin; fareyi aynı yöne yavaşça çevirince hız artar. Ekranın altındaki sayı yatay hızdır (Source birimi/sn).
 

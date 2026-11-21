@@ -15,17 +15,42 @@ var bolumler: Array = []   # {dugum, bas, yaw, yuk, ad}
 var imlec := Vector3(0, 54, -3)
 var imlec_yaw := 0.0
 var sayac := 0
+var kampus := false          # sabit parkur: kampüsün batısından doğusuna, kendi kendine biter
+var bitis_konum := Vector3.ZERO
 
 
-func kur(tohum: int = -1) -> void:
+func kur(tohum: int = -1, kampus_modu := false) -> void:
+	kampus = kampus_modu
 	if tohum >= 0:
 		rng.seed = tohum
 	else:
 		rng.randomize()
 	_ortam()
-	_kutu(self, Vector3(0, 60, 0), Vector3(12, 1, 12), Color(0.9, 0.9, 0.92))
-	for i in 6:
+	if not kampus:
+		_kutu(self, Vector3(0, 60, 0), Vector3(12, 1, 12), Color(0.9, 0.9, 0.92))
+		for i in 6:
+			_bolum_ekle()
+		return
+	# Kampüs: başlangıç batıda, yön doğu (+X). Önce sıfır yüksekliğe göre üret, sonra bütün parkuru
+	# bitiş platformu yerden 30 m yukarıda kalacak kadar kaldır.
+	var p := Vector3(-950, 0, 0)
+	imlec_yaw = -PI / 2
+	baslangic_yaw = imlec_yaw
+	baslangic = p + Vector3(0, 2, 0)
+	imlec = p + ileri(imlec_yaw) * 3.0 + Vector3(0, -6, 0)
+	_kutu(self, p, Vector3(12, 1, 12), Color(0.9, 0.9, 0.92))
+	while imlec.x < 900.0:
 		_bolum_ekle()
+	bitis_konum = imlec + ileri(imlec_yaw) * 25.0 + Vector3(0, -10, 0)
+	_kutu(self, bitis_konum, Vector3(60, 1, 60), Color(0.95, 0.85, 0.35))
+	var kaldir := 30.0 - bitis_konum.y
+	for c in get_children():
+		if c is Node3D:
+			c.position.y += kaldir
+	for b in bolumler:
+		b.bas.y += kaldir
+	baslangic.y += kaldir
+	bitis_konum.y += kaldir
 
 
 func ileri(yaw: float) -> Vector3:
@@ -43,6 +68,8 @@ func guncelle(p: Vector3, simdiki: int) -> int:
 		var b: Dictionary = bolumler[i]
 		if (p - b.bas).dot(ileri(b.yaw)) > 0.0 and p.distance_to(b.bas) < 300.0:
 			yeni = i
+	if kampus:
+		return yeni
 	while bolumler.size() - yeni < 6:
 		_bolum_ekle()
 	# Geride kalan bölümleri sil (dizideki yeri korunur, düğüm serbest bırakılır).
@@ -86,6 +113,11 @@ func _bolum_ekle() -> void:
 				s = -s
 				_gap(rng.randf_range(6, 10))
 		"viraj":
+			if kampus:
+				# Virajlar parkuru doğu yönüne geri çevirir; kampüsün dışına taşmasın.
+				var fark := -PI / 2 - imlec_yaw
+				if absf(fark) > 0.05:
+					s = -1 if fark > 0.0 else 1
 			var adim := -s * deg_to_rad(rng.randf_range(9, 14))
 			for i in rng.randi_range(7, 11):
 				_parca(kap, s, 22, 10, 12, 2.5, renk)
@@ -199,7 +231,7 @@ func _ortam() -> void:
 	e.ambient_light_energy = 0.9
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	e.fog_enabled = true
-	e.fog_density = 0.0008
+	e.fog_density = 0.00015 if kampus else 0.0008  # kampüste uzak binalar görünsün
 	cevre.environment = e
 	add_child(cevre)
 	var gunes := DirectionalLight3D.new()

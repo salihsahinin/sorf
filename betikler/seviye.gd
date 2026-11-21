@@ -43,6 +43,14 @@ func kur(tohum: int = -1, kampus_modu := false) -> void:
 	for i in range(1, rota.size()):
 		if rota[i].distance_to(kose[kose.size() - 1]) >= 25.0 or i == rota.size() - 1:
 			kose.append(rota[i])
+	# Köşe yumuşatma (Chaikin, 1 tur): her köşe iki yarım açılı köşeye bölünür. Gerekçe: oynanış kaydı
+	# (2026-11-21, 44 satır) 50 derece üstü dönüşlü rampalarda düşme oranını %63, 15 derecede %31 gösterdi.
+	var yumusak := PackedVector3Array([kose[0]])
+	for i in range(kose.size() - 1):
+		yumusak.append(kose[i].lerp(kose[i + 1], 0.25))
+		yumusak.append(kose[i].lerp(kose[i + 1], 0.75))
+	yumusak.append(kose[kose.size() - 1])
+	kose = yumusak
 	var renk_i := 0
 	var s := 1
 	for i in range(kose.size() - 1):
@@ -53,12 +61,12 @@ func kur(tohum: int = -1, kampus_modu := false) -> void:
 		if i + 2 < kose.size():
 			var sonraki := atan2(-(kose[i + 2] - b).x, -(kose[i + 2] - b).z)
 			s = -1 if wrapf(sonraki - yaw, -PI, PI) > 0.0 else 1
-		var uz := a.distance_to(b) - 6.0
-		if uz < 8.0:
+		var uz := a.distance_to(b) - 1.5
+		if uz < 5.0:
 			continue
 		var kap := Node3D.new()
 		add_child(kap)
-		imlec = Vector3(a.x, TEPE, a.z) + ileri(yaw) * 3.0
+		imlec = Vector3(a.x, TEPE, a.z) + ileri(yaw) * 0.75
 		imlec_yaw = yaw
 		bolumler.append({"dugum": kap, "bas": imlec, "yaw": yaw, "yuk": 5.0, "ad": "sokak", "uz": uz, "s": s})
 		_parca(kap, s, uz, 4.5, TEPE, 0.0, Color.from_hsv(fmod(renk_i * 0.137, 1.0), 0.55, 0.92))

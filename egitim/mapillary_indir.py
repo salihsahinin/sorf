@@ -18,8 +18,9 @@ import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
-# Kampüs kutusu (veri/itu-binalar.json ile aynı): güney, batı, kuzey, doğu
-KUTU = (41.098, 29.012, 41.112, 29.036)
+# Oyun rotası koridoru: Vadi Yurtları (41.1085 K, 29.0357 D) → Merkezi Derslik A / MED (41.1055 K, 29.0234 D),
+# her yöne ~150 m pay. Eğitim verisi yalnız oyuncunun göreceği alandan toplanır. Sıra: güney, batı, kuzey, doğu.
+KUTU = (41.1042, 29.0216, 41.1099, 29.0390)
 HUCRE = 0.003  # Graph API büyük kutuda sonuç keser; kutu hücrelere bölünür
 ALANLAR = "id,thumb_2048_url,computed_geometry,computed_compass_angle,captured_at,sequence,camera_type"
 

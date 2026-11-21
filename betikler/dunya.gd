@@ -10,7 +10,8 @@ var hedef_y := 0.0
 var dogus := Vector3.ZERO
 var bina_kutulari := {}   # 20 m hücre → bina AABB listesi (ağaç yerleşimi için)
 var yol_parcalari: Array = []   # [a, b, yarı genişlik, yaya]
-var galeri: Array = []   # sabit kamera noktaları [konum, yaw]   # sokak modunda doğuş: merkeze en yakın yol noktası
+var galeri: Array = []
+var yol_izgara := {}   # 20 m hücre → [a, b, yarı genişlik] (ağaç yolun üstüne düşmesin)   # sabit kamera noktaları [konum, yaw]   # sokak modunda doğuş: merkeze en yakın yol noktası
 
 
 func kur(sokak := false) -> void:
@@ -116,6 +117,7 @@ func _yollar() -> void:
 				st.set_normal(Vector3.UP)
 				st.add_vertex(v)
 			yol_parcalari.append([a, b, w, yaya])
+			_yol_kaydet(a, b, w)
 			var d := Vector2(a.x, a.z).length()
 			if yaya and d < en_yakin:
 				en_yakin = d
@@ -170,7 +172,7 @@ func _agaclar() -> void:
 		while t < uz:
 			for taraf in [-1.0, 1.0]:
 				var q: Vector3 = a + yon * t + yan * float(taraf) * (w + 2.2)
-				if not _bina_icinde(q.x, q.z) and Vector2(q.x - dogus.x, q.z - dogus.z).length() > 6.0:
+				if not _bina_icinde(q.x, q.z) and not _yol_ustunde(q) and Vector2(q.x - dogus.x, q.z - dogus.z).length() > 6.0:
 					if y[3]:
 						if rng.randf() < 0.15:
 							agac.append(q)
@@ -178,7 +180,7 @@ func _agaclar() -> void:
 						agac.append(q)
 			if not y[3] and int(t / 14.0) % 2 == 0:
 				var l := a + yon * t + yan * (w + 0.8)
-				if not _bina_icinde(l.x, l.z):
+				if not _bina_icinde(l.x, l.z) and not _yol_ustunde(l):
 					lamba.append([l, yon])
 			t += rng.randf_range(12.0, 20.0)
 		if galeri.size() < 4 and not y[3] and uz > 30.0 and absf(a.x) < 600.0 and absf(a.z) < 500.0 and galeri.size() * 37 < yol_parcalari.find(y) % 160:
@@ -242,3 +244,24 @@ func _coklu(noktalar: Array, mesh: Mesh, renk: Color, rng: RandomNumberGenerator
 	mi.material_override = mat
 	add_child(mi)
 	print("dunya: %d örnek (%s)" % [noktalar.size(), mesh.get_class()])
+
+
+func _yol_kaydet(a: Vector3, b: Vector3, w: float) -> void:
+	var mn := Vector2(minf(a.x, b.x), minf(a.z, b.z)) - Vector2(w, w)
+	var mx := Vector2(maxf(a.x, b.x), maxf(a.z, b.z)) + Vector2(w, w)
+	for gx in range(int(floor(mn.x / 20.0)), int(floor(mx.x / 20.0)) + 1):
+		for gz in range(int(floor(mn.y / 20.0)), int(floor(mx.y / 20.0)) + 1):
+			var k := Vector2i(gx, gz)
+			if not yol_izgara.has(k):
+				yol_izgara[k] = []
+			yol_izgara[k].append([Vector2(a.x, a.z), Vector2(b.x, b.z), w])
+
+
+func _yol_ustunde(q: Vector3) -> bool:
+	# Nokta herhangi bir yol şeridinin (yarı genişlik + 0,5 m pay) içindeyse true.
+	var p := Vector2(q.x, q.z)
+	for y in yol_izgara.get(Vector2i(int(floor(q.x / 20.0)), int(floor(q.z / 20.0))), []):
+		var en := Geometry2D.get_closest_point_to_segment(p, y[0], y[1])
+		if p.distance_to(en) < y[2] + 0.5:
+			return true
+	return false

@@ -11,6 +11,7 @@ var dogus := Vector3.ZERO
 var bina_kutulari := {}   # 20 m hücre → bina AABB listesi (ağaç yerleşimi için)
 var yol_parcalari: Array = []   # [a, b, yarı genişlik, yaya]
 var galeri: Array = []
+var coklular: Array = []   # [MultiMesh, noktalar] (rampaya denk gelen ağaç/lambayı gizlemek için)
 var yol_izgara := {}   # 20 m hücre → [a, b, yarı genişlik] (ağaç yolun üstüne düşmesin)   # sabit kamera noktaları [konum, yaw]   # sokak modunda doğuş: merkeze en yakın yol noktası
 
 
@@ -238,6 +239,7 @@ func _coklu(noktalar: Array, mesh: Mesh, renk: Color, rng: RandomNumberGenerator
 		mm.set_instance_color(i, renk.lightened(yerel.randf_range(-0.15, 0.15)))
 	var mi := MultiMeshInstance3D.new()
 	mi.multimesh = mm
+	coklular.append([mm, noktalar])
 	var mat := StandardMaterial3D.new()
 	mat.vertex_color_use_as_albedo = true
 	mat.roughness = 0.9
@@ -319,3 +321,20 @@ func rota(bas: Vector3, son: Vector3) -> PackedVector3Array:
 	yol.insert(0, Vector3(kaynak.x, 0, kaynak.y))
 	print("rota: %d nokta, %.0f m" % [yol.size(), mesafe.get(hedef, -1.0)])
 	return yol
+
+
+## Rampaların geçtiği şeritteki ağaç ve lambaları gizler (ölçeği sıfırlar). parcalar: [[a, b], ...] dünya koordinatı.
+func rampadan_ele(parcalar: Array, pay: float = 7.0) -> int:
+	var silinen := 0
+	for c in coklular:
+		var mm: MultiMesh = c[0]
+		var nk: Array = c[1]
+		for i in nk.size():
+			var q := Vector2(nk[i].x, nk[i].z)
+			for pr in parcalar:
+				var en := Geometry2D.get_closest_point_to_segment(q, Vector2(pr[0].x, pr[0].z), Vector2(pr[1].x, pr[1].z))
+				if q.distance_to(en) < pay:
+					mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ZERO), nk[i]))
+					silinen += 1
+					break
+	return silinen

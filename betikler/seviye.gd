@@ -78,7 +78,7 @@ func kur(tohum: int = -1, kampus_modu := false) -> void:
 		imlec = Vector3(a.x, TEPE, a.z) + ileri(yaw) * 0.75
 		imlec_yaw = yaw
 		bolumler.append({"dugum": kap, "bas": imlec, "yaw": yaw, "yuk": 5.0, "ad": "sokak", "uz": uz, "s": s})
-		_parca(kap, s, uz, 4.5, TEPE, 0.0, Color.from_hsv(fmod(renk_i * 0.137, 1.0), 0.55, 0.92))
+		_parca(kap, s, uz, 4.5, TEPE, 0.0, Color.from_hsv(fmod(renk_i * 0.137, 1.0), 0.16, 0.72))
 		renk_i += 1
 	var ilk: Dictionary = bolumler[0]
 	baslangic_yaw = ilk.yaw

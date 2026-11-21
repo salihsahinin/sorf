@@ -51,6 +51,11 @@ func _ready() -> void:
 		if kampus_modu:
 			seviye.rota = dunya.rota(Seviye.VADI, Seviye.MED)
 		seviye.kur(2026 if kampus_modu else (7 if test else -1), kampus_modu)
+		if kampus_modu:
+			var pr: Array = []
+			for bb in seviye.bolumler:
+				pr.append([bb.bas, bb.bas + seviye.ileri(bb.yaw) * bb.get("uz", 0.0)])
+			print("rampa şeridinden elenen ağaç/lamba: %d" % dunya.rampadan_ele(pr))
 	oyuncu = Oyuncu.new()
 	add_child(oyuncu)
 	_gosterge()
